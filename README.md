@@ -72,54 +72,63 @@ C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /out:Neko
 
 ## 上传 ZIP 到 GitHub
 
-```powershell
-# 用 gh CLI（需先登录：gh auth login）
-gh release create v1.0.0 "NEKOPARA-成就图标显示器.zip" `
-  --repo kid19874-cmd/nekopara-achievement-panel `
-  --title "v1.0.0 NEKOPARA Extra 成就图标显示器" `
-  --notes "首个发布版本：13 项成就图标显示、中文指南、跟随游戏配色。"
+已发布版本：<https://github.com/kid19874-cmd/nekopara-achievement-panel/releases/tag/v1.0.0>
+
+资产名固定为 **ASCII**（中文名会被 GitHub 截断成 `NEKOPARA-.zip`，已踩坑）：
+
+```
+NEKOPARA-Achievement-Panel-v1.0.0.zip
 ```
 
-或者直接用浏览器：仓库页 → **Releases** → **Create a new release** → 拖入 zip。
+用本机凭证 + API 上传（脚本在 `C:\Users\99382\.dsh\agent-risk-log\browser-auth\`）：
+
+```powershell
+# 上传（追加到已有 release）
+node gh-release-upload.mjs v1.0.0 "路径\NEKOPARA-Achievement-Panel-v1.0.0.zip"
+
+# 替换（删旧资产 + 传新资产）
+node gh-release-refresh-asset.mjs v1.0.0 "路径\新的.zip" "要删除的资产名关键词"
+```
+
+或直接用浏览器：仓库页 → **Releases** → **Edit** → 拖入 zip。
 
 ## 本机浏览器登录态（供自动化复用）
 
-本机 DSH 浏览器的 GitHub 登录态已导出保存，浏览器重启或掉登录时可直接恢复，
-**无需重新走 Google OAuth + reCAPTCHA 验证**。
+### 结论：登录态已自动持久化，无需手动恢复
+
+DSH 浏览器把会话存在磁盘上：
+
+| 项 | 路径 |
+|---|---|
+| 浏览器 profile | `C:\Users\99382\.dsh\dsh-builtin-browser-host\` |
+| Cookie 数据库 | `C:\Users\99382\.dsh\dsh-builtin-browser-host\Network\Cookies` |
+
+**实测（2026-10-17）**：GitHub 登录后 cookie 即时落盘；重开会话访问
+`github.com/settings/profile` 仍为登录态，账号 **King (kid19874-cmd)**。
+**浏览器重启、DSH 重启，登录态都还在。**
+
+### 本机 GitHub 凭证
+
+Windows 凭证管理器里存有可用于 API 的 token：
 
 | 项 | 值 |
 |---|---|
-| 登录账号 | `kid19874-cmd` |
-| 登录方式 | Google OAuth（初次需手动过 reCAPTCHA） |
-| 凭证文件 | `C:\Users\99382\.dsh\agent-risk-log\browser-auth\cookies.json` |
-| 转换脚本 | `C:\Users\99382\.dsh\agent-risk-log\browser-auth\restore-browser-auth.mjs` |
-| 权限 | 仅当前用户可读（已收紧 ACL，去掉继承） |
+| Target | `LegacyGeneric:target=git:https://github.com` |
+| User | `kid19874-cmd` |
 
-**恢复步骤**
+读取（脚本在 `C:\Users\99382\.dsh\agent-risk-log\browser-auth\read-cred.ps1`）：
 
-1. 读取 `cookies.json` 得到 cookie 数组：
-
-   ```powershell
-   node "C:\Users\99382\.dsh\agent-risk-log\browser-auth\restore-browser-auth.mjs"
-   ```
-
-   该脚本把导出的 cookie 转成 `dsh_browser_auth restore` 需要的格式并输出到 stdout。
-
-2. 把输出的 JSON 数组作为 `cookies` 参数调用 DSH 的 `dsh_browser_auth` 工具，`action: "restore"`：
-
-   ```
-   dsh_browser_auth(action="restore", cookies=[...上一步输出的数组...])
-   ```
-
-3. 打开 <https://github.com/>，确认右上角出现 **kid19874-cmd** 头像即恢复成功。
-
-**重新导出（登录态更新后）**
-
-```
-dsh_browser_auth(action="flush")
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File read-cred.ps1
 ```
 
-把返回的数组按同样格式覆盖写入 `cookies.json` 即可。
+输出格式 `用户名|base64`，**CredentialBlob 是 UTF-16LE 编码**。
 
-> ⚠️ **安全提示**：`cookies.json` 里是**活凭证**，等同于账号密码。
-> 不要提交进 git、不要上传网盘、不要贴进任何对话或日志。分享本仓库时务必排除该文件。
+### 什么情况下才要重新登录
+
+清除浏览器数据、GitHub 侧会话过期（默认 2 周不活跃）、换机器或换 Windows 用户
+（DPAPI 绑定当前用户）时。此时直接在浏览器窗口登录即可 —— 走 Google OAuth 需要
+**手动过 reCAPTCHA**，这一步自动化替代不了。
+
+> ⚠️ **安全提示**：`cookies.json` 等凭证文件等同账号密码。
+> 不要提交进 git、不要上传网盘、不要贴进任何对话或日志。
