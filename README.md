@@ -109,20 +109,13 @@ DSH 浏览器把会话存在磁盘上：
 
 ### 本机 GitHub 凭证
 
-Windows 凭证管理器里存有可用于 API 的 token：
+> 2026-10-17：原 OAuth token 已因泄露撤销，Windows 凭证条目已删除。
 
-| 项 | 值 |
-|---|---|
-| Target | `LegacyGeneric:target=git:https://github.com` |
-| User | `kid19874-cmd` |
+需要命令行 / API 时，改用**细粒度 PAT**（只授权具体仓库 + 按需权限 + 设有效期）：
 
-读取（脚本在 `C:\Users\99382\.dsh\agent-risk-log\browser-auth\read-cred.ps1`）：
+> GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File read-cred.ps1
-```
-
-输出格式 `用户名|base64`，**CredentialBlob 是 UTF-16LE 编码**。
+日常发布走浏览器 UI 即可，不产生长期凭据。
 
 ### 什么情况下才要重新登录
 
